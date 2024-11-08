@@ -1,17 +1,12 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const assert_1 = __importDefault(require("assert"));
-const mocha_1 = require("mocha");
+import assert from "assert";
+import { describe } from "mocha";
 function returnsTrue() {
     return true;
 }
-(0, mocha_1.describe)("Mocha test", () => {
-    (0, mocha_1.describe)("Mocha subtest", () => {
+describe("Mocha test", () => {
+    describe("Mocha subtest", () => {
         it("should return true", () => {
-            assert_1.default.equal(returnsTrue(), true);
+            assert.equal(returnsTrue(), true);
         });
     });
 });
