@@ -1,57 +1,20 @@
 import "dotenv/config";
-import express, { ErrorRequestHandler, RequestHandler } from "express";
+import Server from "./core/server.js";
+import authRouter from "./routes/auth.js";
+import uploadRouter from "./routes/upload.js";
+import userRouter from "./routes/user.js";
 
 const PORT = process.env.PORT;
 if (!PORT) throw new Error("PORT env missing");
 
-const router = express.Router({ mergeParams: true });
+const server = new Server(PORT);
 
-const homeMiddleware: RequestHandler = (req, res, next) => {
-  console.log("Entering path / right now!");
-  next();
-};
+const routes = { "/auth": authRouter };
+const privateRoutes = { "/user": userRouter, "/upload": uploadRouter };
 
-router.use(homeMiddleware);
-
-router.get("/", (req, res) => {
-  console.log("Processing...");
-  res.status(200).send("Hi. All working.");
-});
-router.get("/error", (req, res) => {
-  throw new Error("unexpected!");
-});
-router.get("/error-async", (req, res) => {
-  throw new Error("unexpected!");
-});
-
-const app = express();
-
-// global?
-const logMiddleware: RequestHandler = (req, res, next) => {
-  console.log("New request!");
-  const t0 = performance.now();
-
-  res.once("finish", () => {
-    const t1 = performance.now();
-    const td = (t1 - t0).toFixed(2) + "ms";
-    console.log("Took: ", td);
-  });
-
-  next();
-};
-
-app.use(logMiddleware);
-app.use("/", router);
-
-const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
-  if (res.headersSent) {
-    return next(err);
-  }
-  res.status(500).send("internal error!!!");
-};
-
-app.use(errorHandler);
-
-app.listen(3005, () => {
-  console.log(`Listening on port ${PORT}!`);
-});
+server
+  .setupGlobalMiddlewares()
+  .setupRoutes(routes)
+  .setupPrivateRoutes(privateRoutes)
+  .setupErrorHandler()
+  .start();
