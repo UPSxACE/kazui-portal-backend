@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import createRouter from "../core/create-router.js";
 import db from "../db/index.js";
-import { userTable } from "../db/schema.js";
+import { uploadTable, userTable } from "../db/schema.js";
 
 const userRouter = createRouter();
 
@@ -43,7 +43,7 @@ userRouter.post("/create-profile", async (req, res, next) => {
   const address = req.user!.address;
 
   // check if user already has profile
-  const user = await db
+  const [user] = await db
     .select({
       username: userTable.username,
       nickname: userTable.nickname,
@@ -60,10 +60,7 @@ userRouter.post("/create-profile", async (req, res, next) => {
     })
     .from(userTable)
     .where(eq(userTable.address, address))
-    .limit(1)
-    .then((users) => {
-      return users.length > 0 ? users[0] : null;
-    });
+    .limit(1);
 
   if (user) {
     next("FORBIDDEN");
@@ -83,8 +80,27 @@ userRouter.post("/create-profile", async (req, res, next) => {
     return;
   }
 
-  // TODO: check query result!
-  await db.insert(userTable).values({ address, ...data });
+  const validImagePath =
+    data.picture.startsWith("/") ||
+    data.picture.startsWith(process.env.BASE_URL ?? "");
+  if (!validImagePath) {
+    res.status(400).send(error);
+    return;
+  }
+
+  await db.transaction(async (tx) => {
+    const customPicture = data.picture.startsWith(process.env.BASE_URL ?? "");
+    if (customPicture) {
+      await tx.insert(uploadTable).values({
+        owner_address: req.user!.address,
+        path: data.picture,
+        used_in: "profile_picture",
+      });
+    }
+    // TODO: check query result!
+    await tx.insert(userTable).values({ address, ...data });
+  });
+
   res.status(200).send(true);
 });
 
