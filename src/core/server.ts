@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 import { z } from "zod";
 import createRouter from "./create-router.js";
 import newJwtToken from "./new-jwt-token.js";
+import { setupWebsockets } from "./socket-io/socket-io.js";
 
 export type CustomJwtPayload = {
   address: string;
@@ -122,22 +123,25 @@ export default class Server {
         return next(err);
       }
       if (err === "NOT_AUTHORIZED") {
-        res.status(401).send("Not authorized.");
+        res.status(401).send("Not Authorized.");
         return;
       }
       if (err === "FORBIDDEN") {
         res.status(403).send("Forbidden.");
         return;
       }
-      res.status(500).send("Internal error.");
+      res.status(500).send("Internal Error.");
     };
 
     this.app.use(errorHandler);
     return this;
   }
 
-  start() {
-    this.app.listen(this.port, () => {
+  async start() {
+    // setup websockets
+    const server = await setupWebsockets(this.app);
+
+    server.listen(this.port, () => {
       console.log(`Listening on port ${this.port}!`);
     });
   }

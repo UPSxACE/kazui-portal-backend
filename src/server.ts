@@ -10,9 +10,13 @@ if (!PORT) throw new Error("PORT env missing");
 
 const server = new Server(PORT);
 
-const routes = { "/auth": authRouter, "/post": postRouter.public };
+const routes = {
+  "/auth": authRouter,
+  "/post": postRouter.public,
+  "/user": userRouter.public,
+};
 const privateRoutes = {
-  "/user": userRouter,
+  "/user": userRouter.private,
   "/upload": uploadRouter,
   "/post": postRouter.private,
 };

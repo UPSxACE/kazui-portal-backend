@@ -3,14 +3,18 @@ import { z } from "zod";
 import createRouter from "../core/create-router.js";
 import db from "../db/index.js";
 import { uploadTable, userTable } from "../db/schema.js";
+import { realTimeStatsRoom } from "../core/socket-io/socket-io.js";
 
 function sliceBaseUrl(url: string) {
   return url.slice(process.env.BASE_URL?.length);
 }
 
-const userRouter = createRouter();
+const userRouter = {
+  private: createRouter(),
+  public: createRouter(),
+};
 
-userRouter.get("/", async (req, res) => {
+userRouter.private.get("/", async (req, res) => {
   const address = req.user!.address;
 
   const user = await db
@@ -43,7 +47,7 @@ userRouter.get("/", async (req, res) => {
   res.send(user);
 });
 
-userRouter.post("/create-profile", async (req, res, next) => {
+userRouter.private.post("/create-profile", async (req, res, next) => {
   const address = req.user!.address;
 
   // check if user already has profile
@@ -130,11 +134,46 @@ userRouter.post("/create-profile", async (req, res, next) => {
       }
 
       await tx.insert(userTable).values({ address, ...data });
+      realTimeStatsRoom?.fetchData();
       res.status(200).send(true);
     })
     .catch((e) => {
       console.log("Error: ", e?.message);
     });
+});
+
+userRouter.public.get("/profile", async (req, res) => {
+  const { success, data, error } = z
+    .object({
+      address: z.string(),
+    })
+    .safeParse(req.query);
+
+  if (!success) {
+    res.status(400).send("Bad Request");
+    return;
+  }
+
+  const [user] = await db
+    .select({
+      username: userTable.username,
+      nickname: userTable.nickname,
+      address: userTable.address,
+      picture: userTable.picture,
+      rubies: userTable.rubies,
+      interaction_points: userTable.interaction_points,
+      created_at: userTable.created_at,
+    })
+    .from(userTable)
+    .where(eq(userTable.address, data.address))
+    .limit(1);
+
+  if (!user) {
+    res.status(404).send("Not Found");
+    return;
+  }
+
+  res.status(200).send(user);
 });
 
 export default userRouter;
