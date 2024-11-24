@@ -1,9 +1,10 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import createRouter from "../core/create-router.js";
+import { realTimeStatsRoom } from "../core/socket-io/socket-io.js";
 import db from "../db/index.js";
 import { uploadTable, userTable } from "../db/schema.js";
-import { realTimeStatsRoom } from "../core/socket-io/socket-io.js";
+import { redisLock } from "../lib/redis.js";
 
 function sliceBaseUrl(url: string) {
   return url.slice(process.env.BASE_URL?.length);
@@ -97,49 +98,47 @@ userRouter.private.post("/create-profile", async (req, res, next) => {
     return;
   }
 
-  await db
-    .transaction(async (tx) => {
-      const customPicture = data.picture.startsWith(userUploadPath);
-      if (customPicture) {
-        const [upload] = await tx
-          .select()
-          .from(uploadTable)
+  await db.transaction(async (tx) => {
+    const customPicture = data.picture.startsWith(userUploadPath);
+    if (customPicture) {
+      const [upload] = await tx
+        .select()
+        .from(uploadTable)
+        .where(
+          and(
+            eq(uploadTable.owner_address, req.user!.address),
+            eq(uploadTable.path, sliceBaseUrl(data.picture))
+          )
+        );
+
+      if (!upload) {
+        // image doesnt exist
+        res.status(400).send(error);
+        tx.rollback();
+        return;
+      }
+      if (upload) {
+        // update
+        await tx
+          .update(uploadTable)
+          .set({
+            used_in: "profile_picture",
+          })
           .where(
             and(
               eq(uploadTable.owner_address, req.user!.address),
               eq(uploadTable.path, sliceBaseUrl(data.picture))
             )
           );
-
-        if (!upload) {
-          // image doesnt exist
-          res.status(400).send(error);
-          tx.rollback();
-          return;
-        }
-        if (upload) {
-          // update
-          await tx
-            .update(uploadTable)
-            .set({
-              used_in: "profile_picture",
-            })
-            .where(
-              and(
-                eq(uploadTable.owner_address, req.user!.address),
-                eq(uploadTable.path, sliceBaseUrl(data.picture))
-              )
-            );
-        }
       }
+    }
 
-      await tx.insert(userTable).values({ address, ...data });
-      realTimeStatsRoom?.fetchData();
-      res.status(200).send(true);
-    })
-    .catch((e) => {
-      console.log("Error: ", e?.message);
-    });
+    await tx.insert(userTable).values({ address, ...data });
+    const done = await redisLock("lock:rts:newest-accounts");
+    await realTimeStatsRoom?.fetchNewestAccountsData();
+    await done();
+    res.status(200).send(true);
+  });
 });
 
 userRouter.public.get("/profile", async (req, res) => {

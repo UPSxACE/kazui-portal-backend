@@ -20,14 +20,17 @@ export async function setupWebsockets(app: Express.Application) {
     },
   });
 
-  // create rooms
+  // SECTION - create rooms and init them
   realTimeStatsRoom = new RealTimeStatsRoom(io);
   await realTimeStatsRoom.init();
 
   io.on("connection", async (socket) => {
     sessionsCount++;
 
+    // SECTION - Emit data for the first time
     socket.emit("rts:newest-accounts", realTimeStatsRoom?.newestAccounts.data);
+    socket.emit("rts:richest", realTimeStatsRoom?.richest.data);
+    // SECTION - Join rooms
     await socket.join("real-time-stats");
 
     const user = await (async function () {

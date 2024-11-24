@@ -30,7 +30,7 @@ export const userTable = pgTable(
     picture: text(),
     rubies: integer().default(0).notNull(),
     interaction_points: integer().default(0).notNull(),
-    last_login_reward: timestamp({ withTimezone: true, mode: "string" }),
+    last_active: timestamp({ withTimezone: true, mode: "string" }),
     telegram_id: integer(),
     permissions: integer().default(0).notNull(),
     banned_at: timestamp({ withTimezone: true, mode: "string" }),
