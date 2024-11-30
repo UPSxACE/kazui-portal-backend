@@ -130,6 +130,10 @@ export default class Server {
         res.status(403).send("Forbidden.");
         return;
       }
+      if (err === "GATEWAY_TIMEOUT") {
+        res.status(504).send("Gateway Timeout.");
+        return;
+      }
       res.status(500).send("Internal Error.");
     };
 

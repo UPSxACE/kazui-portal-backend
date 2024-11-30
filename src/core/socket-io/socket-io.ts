@@ -27,13 +27,7 @@ export async function setupWebsockets(app: Express.Application) {
   io.on("connection", async (socket) => {
     sessionsCount++;
 
-    // SECTION - Emit data for the first time
-    socket.emit("rts:newest-accounts", realTimeStatsRoom?.newestAccounts.data);
-    socket.emit("rts:richest", realTimeStatsRoom?.richest.data);
-    // SECTION - Join rooms
-    await socket.join("real-time-stats");
-
-    const user = await (async function () {
+    const user = await(async function () {
       const cookies = cookie.parse(socket.handshake.headers.cookie ?? "");
       if (!cookies["authToken"]) return null;
       const payload = jwt.verify(
@@ -52,6 +46,22 @@ export async function setupWebsockets(app: Express.Application) {
       `a user${user ? ` of address ${user.address}` : ""} has connected`
     );
     console.log("concurrent sessions:", sessionsCount);
+
+    // SECTION - Emit data for the first time
+    socket.emit("rts:newest-accounts", realTimeStatsRoom?.newestAccounts.data);
+    socket.emit("rts:richest", realTimeStatsRoom?.richest.data);
+    socket.emit("rts:top-holders", realTimeStatsRoom?.topHolders.data);
+    // SECTION - Listen to client emits
+    socket.on("rts:top-holders:claim-spot", () => {
+      if (user) {
+        if (process.env.NODE_ENV !== "production") {
+          console.log(`CLAIM RECEIVED BY ${user.address}!`);
+        }
+        realTimeStatsRoom?.claimSpot(user.address);
+      }
+    });
+    // SECTION - Join rooms
+    await socket.join("real-time-stats");
 
     socket.on("disconnect", () => {
       console.log(`${user ? `${user.address}` : "a user"} has disconnected`);
