@@ -12,7 +12,6 @@ RUN npm install
 COPY . .
 
 # Compile TypeScript to JavaScript
-RUN npm run migrate-safe
 RUN npm run build
 
 # Stage 2: Run the application
@@ -30,4 +29,4 @@ RUN npm install --production
 EXPOSE 3001
 
 # Command to run the app
-CMD ["node", "dist/server.js"]
+CMD ["sh", "-c", "npm run safe-migrate && node dist/server.js"]
