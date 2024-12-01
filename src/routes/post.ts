@@ -268,12 +268,12 @@ postRouter.public.get("/:id", async (req, res) => {
 postRouter.private.post("/", async (req, res) => {
   const { success, data, error } = z
     .object({
-      text: z.string().optional(),
+      text: z.string().max(1000).optional(),
       picture: z.string(),
     })
     .or(
       z.object({
-        text: z.string(),
+        text: z.string().max(1000),
         picture: z.string().optional(),
       })
     )
@@ -400,7 +400,7 @@ postRouter.private.post("/:id/comment", async (req, res) => {
 
   const { success, data, error } = z
     .object({
-      text: z.string(),
+      text: z.string().max(1000),
     })
     .safeParse(req.body);
 
