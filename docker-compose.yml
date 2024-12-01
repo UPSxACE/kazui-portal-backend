@@ -18,3 +18,7 @@ services:
     volumes:
       - ./backups:/usr/src/app/backups
       - ./uploads:/usr/src/app/uploads
+
+networks:
+  traefik-docker-stack_traefik_network:
+    external: true
