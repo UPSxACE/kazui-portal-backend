@@ -1,0 +1,20 @@
+services:
+  kazui-portal-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+    restart: always
+    env_file: .env
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.kazui-portal-backend.rule=Host(`${HOSTNAME}`)
+      - traefik.http.routers.kazui-portal-backend.entrypoints=websecure
+      - traefik.http.routers.kazui-portal-backend.tls.certresolver=${CERTRESOLVER}
+      - io.portainer.accesscontrol.public=true
+    networks:
+      - traefik-docker-stack_traefik_network
+    volumes:
+      - ./backups:/usr/src/app/backups
+      - ./uploads:/usr/src/app/uploads

@@ -66,6 +66,7 @@ export async function setupWebsockets(app: Express.Application) {
     socket.on("disconnect", () => {
       console.log(`${user ? `${user.address}` : "a user"} has disconnected`);
       sessionsCount -= 1;
+      console.log("concurrent sessions:", sessionsCount);
     });
   });
 
