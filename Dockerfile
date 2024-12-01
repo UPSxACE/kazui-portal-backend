@@ -29,4 +29,4 @@ RUN npm install --production
 EXPOSE 3001
 
 # Command to run the app
-CMD ["sh", "-c", "npm run safe-migrate && node dist/server.js"]
+CMD ["sh", "-c", "npm run migrate-safe && node dist/server.js"]
