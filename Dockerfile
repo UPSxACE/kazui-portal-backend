@@ -24,6 +24,7 @@ WORKDIR /usr/src/app
 COPY --from=build /usr/src/app/dist ./dist
 COPY --from=build /usr/src/app/dump.js ./
 COPY --from=build /usr/src/app/drizzle.config.ts ./
+COPY --from=build /usr/src/app/src/db ./src/db
 COPY --from=build /usr/src/app/package*.json ./
 RUN npm install --production
 
