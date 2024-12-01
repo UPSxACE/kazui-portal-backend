@@ -23,6 +23,7 @@ WORKDIR /usr/src/app
 # Copy the compiled code and package files from the build stage
 COPY --from=build /usr/src/app/dist ./dist
 COPY --from=build /usr/src/app/dump.js ./
+COPY --from=build /usr/src/app/drizzle.config.json ./
 COPY --from=build /usr/src/app/package*.json ./
 RUN npm install --production
 
