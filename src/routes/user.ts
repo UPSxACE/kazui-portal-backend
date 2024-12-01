@@ -78,7 +78,11 @@ userRouter.private.post("/create-profile", async (req, res, next) => {
 
   const { success, data, error } = z
     .object({
-      username: z.string(), //FIXME
+      username: z
+        .string()
+        .min(2)
+        .max(15)
+        .regex(/^[a-zA-Z0-9]?([a-z0-9_.-]*[a-z0-9])?$/), //FIXME
       nickname: z.string(),
       picture: z.string(),
     })
@@ -133,7 +137,7 @@ userRouter.private.post("/create-profile", async (req, res, next) => {
       }
     }
 
-    await tx.insert(userTable).values({ address, ...data });
+    await tx.insert(userTable).values({ address, rubies: 20, ...data });
     const done = await redisLock("lock:rts:newest-accounts");
     await realTimeStatsRoom?.fetchNewestAccountsData();
     await done();

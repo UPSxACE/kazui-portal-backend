@@ -242,6 +242,12 @@ export const userRelations = relations(userTable, ({ many }) => {
     posts_by_address: many(postTable, {
       relationName: "posts_by_address",
     }),
+    comments_by_id: many(postCommentTable, {
+      relationName: "comments_by_id",
+    }),
+    comments_by_address: many(postCommentTable, {
+      relationName: "comments_by_address",
+    }),
     // posts_by_id: many(postTable),
     // posts_by_address: many(postTable),
   };
@@ -292,9 +298,19 @@ export const postCommentRelations = relations(
   postCommentTable,
   ({ one, many }) => {
     return {
-      post: one(postCommentTable, {
+      owner_id: one(userTable, {
+        fields: [postCommentTable.owner_id],
+        references: [userTable.id],
+        relationName: "comments_by_id",
+      }),
+      owner_address: one(userTable, {
+        fields: [postCommentTable.owner_address],
+        references: [userTable.address],
+        relationName: "comments_by_address",
+      }),
+      post: one(postTable, {
         fields: [postCommentTable.post_id],
-        references: [postCommentTable.id],
+        references: [postTable.id],
       }),
       likes: many(postCommentLikeTable),
       images: many(postCommentImageTable),
@@ -305,9 +321,9 @@ export const postCommentImageRelations = relations(
   postCommentImageTable,
   ({ one }) => {
     return {
-      comment: one(postCommentTable, {
+      comment: one(postTable, {
         fields: [postCommentImageTable.post_comment_id],
-        references: [postCommentTable.id],
+        references: [postTable.id],
       }),
     };
   }
@@ -316,9 +332,9 @@ export const postCommentLikeRelations = relations(
   postCommentLikeTable,
   ({ one }) => {
     return {
-      comment: one(postCommentTable, {
+      comment: one(postTable, {
         fields: [postCommentLikeTable.post_comment_id],
-        references: [postCommentTable.id],
+        references: [postTable.id],
       }),
     };
   }

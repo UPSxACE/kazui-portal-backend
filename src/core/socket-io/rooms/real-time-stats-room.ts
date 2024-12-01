@@ -10,6 +10,10 @@ import { sleepRpc } from "../../../lib/utils/sleep.js";
 import getAta from "../../../lib/utils/solana/get-ata.js";
 import Room from "./room.js";
 
+const MAX_RICHEST = 10;
+const MAX_NEWEST = 7;
+const MAX_TOP_HOLDERS = 7;
+
 /** NOTE
 There is two types of possible logics applied here, for each data.
 
@@ -104,7 +108,7 @@ class RealTimeStatsRoom {
       .select({ address: userTable.address, date: userTable.created_at })
       .from(userTable)
       .orderBy(desc(userTable.created_at))
-      .limit(5);
+      .limit(MAX_NEWEST);
 
     this.newestAccounts.data = newestAccounts.map((data) => {
       return { ...data, date: new Date(data.date).getTime() };
@@ -157,10 +161,10 @@ class RealTimeStatsRoom {
 
   // MARK: richest
   // actually fetches the richest accounts from database (also publishes on redis for subscribers)
-  async fetchRichestData() {
+  async fetchRichestData(force?: boolean) {
     const done = await redisLock("cron:rts:richest");
     const lastUpdate = await redis
-      .get("rts:newest-accounts:last-update")
+      .get("rts:richest:last-update")
       .then((data) =>
         z
           .number()
@@ -169,7 +173,10 @@ class RealTimeStatsRoom {
       )
       .catch(() => null);
 
-    if (lastUpdate && dayjs(new Date()).diff(lastUpdate, "seconds") >= 15) {
+    if (
+      force ||
+      (lastUpdate && dayjs(new Date()).diff(lastUpdate, "seconds") >= 15)
+    ) {
       // This if condition, together with the lock, assure the data is only fetched by a single instance
       // of the server while the others just read the data from the redis instance
       if (process.env.NODE_ENV !== "production")
@@ -178,7 +185,7 @@ class RealTimeStatsRoom {
         .select({ address: userTable.address, rubies: userTable.rubies })
         .from(userTable)
         .orderBy(desc(userTable.rubies))
-        .limit(5);
+        .limit(MAX_RICHEST);
 
       this.richest.data = richest.map((data) => {
         return data;
@@ -196,7 +203,7 @@ class RealTimeStatsRoom {
 
   // loads cached data from redis instance, or fetches if not available
   // then, emits the data to the client
-  async updateRichest() {
+  async updateRichest(forced?: boolean) {
     const done = await redisLock("lock:rts:richest");
 
     const lastUpdate = await redis
@@ -208,16 +215,17 @@ class RealTimeStatsRoom {
           .parse(JSON.parse(data ?? "null"))
       )
       .catch(() => null);
+
     const currentData = await redis
       .get("rts:richest:data")
       .then((data) => richestDataSchema.parse(JSON.parse(data ?? "null")))
       .catch(() => null);
 
-    if (lastUpdate && currentData) {
+    if (!forced && lastUpdate && currentData) {
       this.richest.lastUpdated = lastUpdate;
       this.richest.data = currentData;
     } else {
-      await this.fetchRichestData();
+      await this.fetchRichestData(forced);
     }
     await done();
 
@@ -248,7 +256,7 @@ class RealTimeStatsRoom {
         (val) => val.address === address
       );
       const inLeaderboard = inLeaderboardIndex !== -1;
-      const leaderboardNotFull = currentData.length < 5;
+      const leaderboardNotFull = currentData.length < MAX_TOP_HOLDERS;
 
       if (!inLeaderboard && leaderboardNotFull) {
         isUpdate = true;
@@ -331,7 +339,7 @@ class RealTimeStatsRoom {
       // of the server while the others just read the data from the redis instance
 
       const freshBalances = new Set<string>();
-      const topPositions = Math.min(currentData.length, 5);
+      const topPositions = Math.min(currentData.length, MAX_TOP_HOLDERS);
       let allTopFresh = false;
       let attempts = 1;
       let failedDueToError = false;
@@ -425,8 +433,11 @@ class RealTimeStatsRoom {
     // SECTION - init all the data on server start
 
     // first fill the object data
+    const done = await redisLock("lock:rts:newest-accounts");
+    await this.fetchNewestAccountsData();
+    done();
     await this.updateNewestAccounts();
-    await this.updateRichest();
+    await this.updateRichest(true);
     await this.refreshTopholders(true);
 
     // then subscribe to new updates by any instance of the application

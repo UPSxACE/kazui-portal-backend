@@ -1,14 +1,78 @@
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
 import bs from "bs58";
+import { eq } from "drizzle-orm";
 import nacl from "tweetnacl";
 import naclUtil from "tweetnacl-util";
+import { isArrayBuffer } from "util/types";
 import { v4 as uuid } from "uuid";
 import { z } from "zod";
 import createRouter from "../core/create-router.js";
 import newJwtToken from "../core/new-jwt-token.js";
+import db from "../db/index.js";
+import { userTable } from "../db/schema.js";
 import redis from "../lib/redis.js";
+import sleep, { sleepRpc } from "../lib/utils/sleep.js";
+import getRpcConnection from "../lib/utils/solana/get-rpc-connection.js";
 
 const authRouter = createRouter();
+
+// FIXME delete!
+authRouter.get("/test", async (req, res, next) => {
+  let attempts = 0;
+  while (attempts < 5) {
+    attempts++;
+    console.log("ATTEMPT: " + attempts);
+    try {
+      const connection = getRpcConnection();
+
+      const mintPublicKey = new PublicKey(
+        "kaz86ereaWMMsep13XrhSuyZ7tbHAs5RjCZKdaSmb9n"
+      );
+
+      const accounts = await connection.getParsedProgramAccounts(
+        TOKEN_PROGRAM_ID,
+        {
+          filters: [
+            {
+              dataSize: 165,
+            },
+            {
+              memcmp: {
+                offset: 0,
+                bytes: mintPublicKey.toString(),
+              },
+            },
+          ],
+        }
+      ); // top 20
+
+      const valuesFiltered: { owner: string; balance: number }[] = [];
+      for (const topHolder of accounts) {
+        if (isArrayBuffer(topHolder.account.data)) continue;
+        const data = {
+          owner: topHolder.account.data.parsed?.info?.owner,
+          balance: topHolder.account.data.parsed?.info?.tokenAmount?.uiAmount,
+        };
+
+        const [account] = await db
+          .select({ address: userTable.address })
+          .from(userTable)
+          .where(eq(userTable.address, topHolder.account.owner.toString()));
+
+        valuesFiltered.push(data);
+        // if (Boolean(account)) valuesFiltered.push(topHolder);
+      }
+
+      res.send(valuesFiltered);
+      return;
+    } catch (err) {
+      await sleepRpc();
+      console.log(err);
+    }
+  }
+  next("INTERNAL_ERROR");
+});
 
 authRouter.get("/get-challenge", async (req, res, next) => {
   const { success, data, error } = z
